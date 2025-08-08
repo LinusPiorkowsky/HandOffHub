@@ -1504,30 +1504,5 @@ with app.app_context():
     except Exception as e:
         print(f"Database initialization note: {e}")
 
-# Database Reset on Deploy
-import os
-if os.environ.get('RESET_DATABASE') == 'true':
-    with app.app_context():
-        print("🔄 Resetting database...")
-        db.drop_all()
-        db.create_all()
-        
-        # Minimal data
-        org = Organization(name="My Company", domain="company.com")
-        db.session.add(org)
-        db.session.flush()
-        
-        team = Team(name="Admin", color="#ef4444", organization_id=org.id)
-        db.session.add(team)
-        db.session.flush()
-        
-        admin = User(name="Admin", email="admin@demo.com", team_id=team.id, role='admin')
-        admin.set_password("admin123")
-        db.session.add(admin)
-        db.session.commit()
-        
-        print("✅ Reset complete! Login: admin@demo.com / admin123")
-
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
