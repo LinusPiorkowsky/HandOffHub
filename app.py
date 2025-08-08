@@ -790,6 +790,11 @@ def view_handoff(handoff_id):
                          sub_handoffs=sub_handoffs,
                          timeline=timeline)
 
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
 @app.route('/handoff/<int:handoff_id>/update_status', methods=['POST'])
 @login_required
 def update_handoff_status(handoff_id):
@@ -1463,5 +1468,5 @@ with app.app_context():
     except Exception as e:
         print(f"Database initialization note: {e}")
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
