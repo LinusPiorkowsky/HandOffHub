@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://handoff:handoff123@db:5432/handoffhub
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    command: flask run --host=0.0.0.0
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=handoff
+      - POSTGRES_PASSWORD=handoff123
+      - POSTGRES_DB=handoffhub
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
