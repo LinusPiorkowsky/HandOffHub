@@ -538,8 +538,8 @@ def require_team_member(f):
     @login_required
     def decorated_function(*args, **kwargs):
         if not current_user.team_id:
-            flash('You need to be part of a team to access this feature.', 'warning')
-            return redirect(url_for('dashboard'))
+            flash('You need to be part of a team to create handoffs. Please join or create a team first.', 'warning')
+            return redirect(url_for('dashboard'))  # Redirect to dashboard instead of teams
         return f(*args, **kwargs)
     return decorated_function
 
@@ -772,17 +772,18 @@ def create_handoff():
         .filter(Team.id != current_user.team_id).all()
     
     if not org_teams:
-        flash('No other teams found. Please create more teams first.', 'warning')
+        flash('No other teams found in your organization. You need at least 2 teams to create handoffs.', 'warning')
         return redirect(url_for('teams'))
     
     form.to_team.choices = [(0, '-- Select Team --')] + [(t.id, t.name) for t in org_teams]
     
-    # NEU: Personen zur Direktzuweisung laden
+    # Dynamic loading of team members for assignment
     form.assigned_to.choices = [(0, '-- Auto-assign --')]
-    if request.method == 'GET' or form.to_team.data:
-        if form.to_team.data and form.to_team.data != 0:
-            team_members = User.query.filter_by(team_id=form.to_team.data, is_active=True).all()
-            form.assigned_to.choices += [(u.id, u.name) for u in team_members]
+    
+    # Load team members when a team is selected (via AJAX or on form submission)
+    if request.method == 'POST' and form.to_team.data and form.to_team.data != 0:
+        team_members = User.query.filter_by(team_id=form.to_team.data, is_active=True).all()
+        form.assigned_to.choices += [(u.id, u.name) for u in team_members]
     
     # Get templates for current team
     templates = HandoffTemplate.query.filter_by(team_id=current_user.team_id, is_active=True).all()
@@ -800,7 +801,7 @@ def create_handoff():
             from_team_id=current_user.team_id,
             to_team_id=form.to_team.data,
             created_by_id=current_user.id,
-            assigned_to_id=form.assigned_to.data if form.assigned_to.data != 0 else None,  # NEU
+            assigned_to_id=form.assigned_to.data if form.assigned_to.data != 0 else None,
             priority=Priority(form.priority.data),
             deadline=form.deadline.data,
             estimated_hours=form.estimated_hours.data,
@@ -822,12 +823,11 @@ def create_handoff():
         receiving_team = Team.query.get(form.to_team.data)
         receiving_team.total_handoffs_received += 1
         
-        # NEU: Wenn direkt zugewiesen, Status auf ACKNOWLEDGED setzen
+        # Handle assignment and notifications
         if handoff.assigned_to_id:
             handoff.status = HandoffStatus.ACKNOWLEDGED
             handoff.acknowledged_at = datetime.utcnow()
             
-            # Benachrichtigung nur an zugewiesene Person
             create_notification(
                 handoff.assigned_to_id,
                 handoff.id,
@@ -840,7 +840,7 @@ def create_handoff():
             if assignee.notification_preference in [NotificationType.EMAIL, NotificationType.BOTH]:
                 send_notification_email(handoff, assignee.email, 'Handoff Assigned to You')
         else:
-            # Benachrichtigung an alle Team-Mitglieder
+            # Notify all team members
             receiving_team_members = User.query.filter_by(team_id=form.to_team.data, is_active=True).all()
             for member in receiving_team_members:
                 create_notification(
