@@ -1,10 +1,155 @@
+<!-- templates/teams.html -->
 {% extends "base.html" %}
-{% block title %}No Team{% endblock %}
-
+{% block title %}Teams - HandoffHub{% endblock %}
 {% block content %}
-<div class="text-center py-20">
-    <h1 class="text-2xl font-bold">You’re not in a team yet!</h1>
-    <p class="mt-2 text-gray-600">Ask an admin to add you or create your own team.</p>
-    <a href="{{ url_for('create_team') }}" class="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-lg">Create Team</a>
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Teams</h1>
+                <p class="text-gray-600 mt-1">Manage teams in {{ organization.name }}</p>
+            </div>
+            {% if not user_has_no_team or current_user.role in ['admin', 'team_lead'] %}
+            <button onclick="showCreateTeamModal()" class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition">
+                <i class="fas fa-plus mr-2"></i>Create Team
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Alert for users without team -->
+    {% if user_has_no_team %}
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    You're not currently part of any team. Join an existing team below or create a new one.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Teams Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for team in teams %}
+        <div class="bg-white rounded-xl shadow-sm border hover:shadow-lg transition">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-lg flex items-center justify-center" 
+                         style="background-color: {{ team.color }}20; color: {{ team.color }}">
+                        <i class="fas fa-users text-xl"></i>
+                    </div>
+                    <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                        {{ team.member_count }} members
+                    </span>
+                </div>
+                
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ team.name }}</h3>
+                
+                {% if team.description %}
+                <p class="text-sm text-gray-600 mb-4">{{ team.description }}</p>
+                {% else %}
+                <p class="text-sm text-gray-400 italic mb-4">No description</p>
+                {% endif %}
+                
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-500">
+                        <i class="fas fa-exchange-alt mr-1"></i>
+                        {{ team.pending_handoffs }} pending
+                    </span>
+                    
+                    {% if user_has_no_team and current_user.team_id != team.id %}
+                    <form method="POST" action="{{ url_for('join_team', team_id=team.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                            Join Team →
+                        </button>
+                    </form>
+                    {% elif current_user.team_id == team.id %}
+                    <span class="text-green-600 font-medium">
+                        <i class="fas fa-check-circle mr-1"></i>Your Team
+                    </span>
+                    {% else %}
+                    <a href="#" class="text-indigo-600 hover:text-indigo-800">
+                        View Details →
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        {% if not teams %}
+        <div class="col-span-3 text-center py-12">
+            <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
+            <p class="text-gray-500">No teams found in this organization.</p>
+            <button onclick="showCreateTeamModal()" class="mt-4 text-indigo-600 hover:text-indigo-800">
+                Create the first team
+            </button>
+        </div>
+        {% endif %}
+    </div>
 </div>
+
+<!-- Create Team Modal -->
+<div id="createTeamModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl max-w-md w-full mx-4 shadow-2xl">
+        <div class="p-6 border-b">
+            <h3 class="text-lg font-semibold text-gray-900">Create New Team</h3>
+        </div>
+        <form method="POST" action="{{ url_for('create_team') }}">
+            {{ form.hidden_tag() }}
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Team Name</label>
+                    {{ form.name(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500") }}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
+                    {{ form.description(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500", rows=3) }}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Team Color</label>
+                    <div class="flex items-center space-x-2">
+                        {{ form.color(class="w-20 h-10 border-gray-300 rounded cursor-pointer") }}
+                        <span class="text-sm text-gray-500">Click to choose color</span>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t bg-gray-50 flex justify-end space-x-3">
+                <button type="button" onclick="hideCreateTeamModal()" 
+                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                    Create Team
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function showCreateTeamModal() {
+    document.getElementById('createTeamModal').classList.remove('hidden');
+}
+
+function hideCreateTeamModal() {
+    document.getElementById('createTeamModal').classList.add('hidden');
+}
+
+// Click outside to close
+document.getElementById('createTeamModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        hideCreateTeamModal();
+    }
+});
+</script>
+
 {% endblock %}
