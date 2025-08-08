@@ -327,6 +327,90 @@ class HandoffTemplate(db.Model):
     team = db.relationship('Team', foreign_keys=[team_id], backref='owned_templates')
     to_team = db.relationship('Team', foreign_keys=[to_team_id])
 
+def init_database():
+    """Initialize database tables and create demo data if needed"""
+    with app.app_context():
+        try:
+            # Create all tables
+            db.create_all()
+            
+            # Check if data already exists
+            existing_orgs = Organization.query.count()
+            existing_users = User.query.count()
+            
+            if existing_orgs == 0 and existing_users == 0:
+                print("📝 Creating initial demo data...")
+                
+                # Create minimal demo data
+                org = Organization(
+                    name="Demo Company",
+                    domain="demo.com",
+                    subscription_tier="starter"
+                )
+                db.session.add(org)
+                db.session.flush()
+                
+                # Create teams
+                teams_data = [
+                    ("Operations", "#6366f1"),
+                    ("Development", "#10b981"),
+                    ("Support", "#f59e0b"),
+                    ("Management", "#ef4444")
+                ]
+                
+                teams = []
+                for name, color in teams_data:
+                    team = Team(
+                        name=name,
+                        description=f"{name} Team",
+                        color=color,
+                        organization_id=org.id
+                    )
+                    teams.append(team)
+                    db.session.add(team)
+                
+                db.session.flush()
+                
+                # Create admin user
+                admin = User(
+                    name="Admin User",
+                    email="admin@demo.com",
+                    team_id=teams[3].id,  # Management
+                    role='admin',
+                    avatar_color="#ef4444"
+                )
+                admin.set_password("admin123")
+                db.session.add(admin)
+                
+                # Create demo users
+                demo_users = [
+                    ("John Doe", "john@demo.com", teams[0].id, 'team_lead'),
+                    ("Jane Smith", "jane@demo.com", teams[1].id, 'member'),
+                    ("Bob Wilson", "bob@demo.com", teams[2].id, 'member')
+                ]
+                
+                for name, email, team_id, role in demo_users:
+                    user = User(
+                        name=name,
+                        email=email,
+                        team_id=team_id,
+                        role=role,
+                        avatar_color=f"#{secrets.token_hex(3)}"
+                    )
+                    user.set_password("demo123")
+                    db.session.add(user)
+                
+                db.session.commit()
+                
+                print("✅ Demo data created successfully!")
+                print("\n📧 Login Credentials:")
+                print("   Admin: admin@demo.com / admin123")
+                print("   User: john@demo.com / demo123")
+                
+        except Exception as e:
+            print(f"Database initialization note: {e}")
+            db.session.rollback()
+
 # Forms
 class RegistrationForm(FlaskForm):
     name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=100)])
@@ -1492,6 +1576,7 @@ def create_demo_data():
     
     db.session.commit()
     
+    
     print("✅ Demo data created successfully!")
     print("\n📧 Demo accounts (all passwords: demo123):")
     print("   Admin: sarah.johnson@acme.com")
@@ -1513,5 +1598,8 @@ with app.app_context():
     except Exception as e:
         print(f"Database initialization note: {e}")
 
+init_database()
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
