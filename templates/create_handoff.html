@@ -2,56 +2,179 @@
 {% extends "base.html" %}
 {% block title %}Create Handoff - HandoffHub{% endblock %}
 {% block content %}
-<div class="max-w-2xl mx-auto">
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-2xl font-bold mb-6">Create New Handoff</h2>
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-xl shadow-sm border">
+        <div class="p-6 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
+            <h2 class="text-2xl font-bold text-gray-900">Create New Handoff</h2>
+            <p class="text-gray-600 mt-1">Hand over tasks seamlessly between teams</p>
+        </div>
         
-        <form method="POST">
+        <form method="POST" class="p-6 space-y-6" x-data="{ useTemplate: false, selectedTemplate: 0 }">
             {{ form.hidden_tag() }}
             
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                {{ form.title(class="w-full border rounded-lg px-3 py-2") }}
-                {% if form.title.errors %}
-                <p class="text-red-500 text-sm mt-1">{{ form.title.errors[0] }}</p>
-                {% endif %}
+            <!-- Template Selection -->
+            {% if form.template_id.choices|length > 1 %}
+            <div class="bg-blue-50 rounded-lg p-4">
+                <div class="flex items-center mb-3">
+                    <input type="checkbox" x-model="useTemplate" id="use-template" class="rounded text-indigo-600">
+                    <label for="use-template" class="ml-2 font-medium">Use a template</label>
+                </div>
+                <div x-show="useTemplate" x-cloak>
+                    {{ form.template_id(class="w-full border-gray-300 rounded-lg", 
+                                      **{'x-model': 'selectedTemplate', '@change': 'loadTemplate()'}) }}
+                </div>
             </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                {{ form.description(class="w-full border rounded-lg px-3 py-2", rows=4) }}
-            </div>
-
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">To Team</label>
-                    {{ form.to_team(class="w-full border rounded-lg px-3 py-2") }}
-                    {% if form.to_team.errors %}
-                    <p class="text-red-500 text-sm mt-1">{{ form.to_team.errors[0] }}</p>
+            {% endif %}
+            
+            <!-- Basic Information -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Title <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.title(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500", 
+                                placeholder="Brief, descriptive title for the handoff") }}
+                    {% if form.title.errors %}
+                    <p class="text-red-500 text-sm mt-1">{{ form.title.errors[0] }}</p>
                     {% endif %}
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                    {{ form.priority(class="w-full border rounded-lg px-3 py-2") }}
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Type <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        {{ form.handoff_type(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pl-10") }}
+                        <i class="fas fa-tasks absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        To Team <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        {{ form.to_team(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pl-10") }}
+                        <i class="fas fa-users absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                    {% if form.to_team.errors %}
+                    <p class="text-red-500 text-sm mt-1">{{ form.to_team.errors[0] }}</p>
+                    {% endif %}
                 </div>
             </div>
 
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Deadline (Optional)</label>
-                {{ form.deadline(class="w-full border rounded-lg px-3 py-2", placeholder="YYYY-MM-DD HH:MM") }}
-                <p class="text-sm text-gray-500 mt-1">Format: 2024-12-31 15:00</p>
+            <!-- Description -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Description <span class="text-red-500">*</span>
+                </label>
+                {{ form.description(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500", 
+                                  rows=5, 
+                                  placeholder="Provide clear context and requirements. What needs to be done? Any special instructions?") }}
+                {% if form.description.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.description.errors[0] }}</p>
+                {% endif %}
+                <p class="text-sm text-gray-500 mt-1">Be specific - the receiving team should understand exactly what's needed.</p>
             </div>
 
-            <div class="flex space-x-3">
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
-                    Create Handoff
-                </button>
-                <a href="{{ url_for('dashboard') }}" class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400">
-                    Cancel
+            <!-- Priority and Deadline -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Priority
+                    </label>
+                    <div class="relative">
+                        {{ form.priority(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pl-10") }}
+                        <i class="fas fa-flag absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Deadline (Optional)
+                    </label>
+                    <div class="relative">
+                        {{ form.deadline(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pl-10", 
+                                       placeholder="YYYY-MM-DD HH:MM") }}
+                        <i class="fas fa-calendar-alt absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Format: 2024-12-31 15:00</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Estimated Hours
+                    </label>
+                    <div class="relative">
+                        {{ form.estimated_hours(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pl-10", 
+                                              placeholder="e.g., 4") }}
+                        <i class="fas fa-hourglass-half absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Tags (Optional)
+                </label>
+                {{ form.tags(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500", 
+                           placeholder="e.g., urgent, client-facing, api, documentation") }}
+                <p class="text-sm text-gray-500 mt-1">Comma-separated tags for better organization</p>
+            </div>
+
+            <!-- Attachments (Future Feature) -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-paperclip mr-2"></i>Attachments
+                </label>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+                    <p class="text-gray-500">Drag and drop files here, or click to browse</p>
+                    <p class="text-sm text-gray-400 mt-1">Coming soon - for now, include links in description</p>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex justify-between items-center pt-6 border-t">
+                <a href="{{ url_for('dashboard') }}" class="text-gray-600 hover:text-gray-800">
+                    <i class="fas fa-arrow-left mr-2"></i>Cancel
                 </a>
+                <div class="space-x-3">
+                    <button type="button" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Save as Draft
+                    </button>
+                    <button type="submit" class="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-shadow">
+                        <i class="fas fa-paper-plane mr-2"></i>Create Handoff
+                    </button>
+                </div>
             </div>
         </form>
+    </div>
+
+    <!-- Quick Tips -->
+    <div class="mt-6 bg-blue-50 rounded-xl p-6">
+        <h3 class="font-semibold text-blue-900 mb-3">
+            <i class="fas fa-lightbulb mr-2"></i>Tips for Effective Handoffs
+        </h3>
+        <ul class="space-y-2 text-blue-800">
+            <li class="flex items-start">
+                <i class="fas fa-check-circle mt-1 mr-2 text-blue-600"></i>
+                <span>Be specific about what needs to be done and expected outcomes</span>
+            </li>
+            <li class="flex items-start">
+                <i class="fas fa-check-circle mt-1 mr-2 text-blue-600"></i>
+                <span>Include all relevant context and background information</span>
+            </li>
+            <li class="flex items-start">
+                <i class="fas fa-check-circle mt-1 mr-2 text-blue-600"></i>
+                <span>Set realistic deadlines considering the receiving team's workload</span>
+            </li>
+            <li class="flex items-start">
+                <i class="fas fa-check-circle mt-1 mr-2 text-blue-600"></i>
+                <span>Use tags to make handoffs easily searchable later</span>
+            </li>
+        </ul>
     </div>
 </div>
 {% endblock %}
