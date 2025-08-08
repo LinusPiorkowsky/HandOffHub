@@ -150,7 +150,7 @@ class Team(db.Model):
     organization = db.relationship('Organization', backref='teams')
     sent_handoffs = db.relationship('Handoff', foreign_keys='Handoff.from_team_id', backref='from_team', lazy='dynamic')
     received_handoffs = db.relationship('Handoff', foreign_keys='Handoff.to_team_id', backref='to_team', lazy='dynamic')
-    templates = db.relationship('HandoffTemplate', backref='team', lazy='dynamic', cascade='all, delete-orphan')
+    # templates = db.relationship('HandoffTemplate', backref='team', lazy='dynamic', cascade='all, delete-orphan')
 
 class Organization(db.Model):
     __tablename__ = 'organizations'
@@ -211,7 +211,7 @@ class Handoff(db.Model):
     comments = db.relationship('Comment', backref='handoff', lazy='dynamic', cascade='all, delete-orphan')
     notifications = db.relationship('Notification', backref='handoff', lazy='dynamic', cascade='all, delete-orphan')
     sub_handoffs = db.relationship('Handoff', backref=db.backref('parent_handoff', remote_side=[id]), lazy='dynamic')
-    template_used = db.relationship('HandoffTemplate', foreign_keys=[template_id])
+    template_used = db.relationship('HandoffTemplate', foreign_keys='Handoff.template_id')
     
     def __init__(self, **kwargs):
         super(Handoff, self).__init__(**kwargs)
@@ -314,6 +314,7 @@ class HandoffTemplate(db.Model):
     use_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    team = db.relationship('Team', foreign_keys=[team_id], backref='owned_templates')
     to_team = db.relationship('Team', foreign_keys=[to_team_id])
 
 # Forms
