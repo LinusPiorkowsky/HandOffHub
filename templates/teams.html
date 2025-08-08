@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}No Team{% endblock %}
+
+{% block content %}
+<div class="text-center py-20">
+    <h1 class="text-2xl font-bold">You’re not in a team yet!</h1>
+    <p class="mt-2 text-gray-600">Ask an admin to add you or create your own team.</p>
+    <a href="{{ url_for('create_team') }}" class="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-lg">Create Team</a>
+</div>
+{% endblock %}

@@ -192,8 +192,8 @@
                 <div class="mt-8 p-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg text-white">
                     <div class="font-semibold mb-2">{{ current_user.team.name }}</div>
                     <div class="text-sm opacity-90">
-                        <div>{{ current_user.team.members.filter_by(is_active=True).count() }} members</div>
-                        <div>{{ current_user.team.received_handoffs.filter_by(status=HandoffStatus.PENDING).count() }} pending</div>
+                        <div>{{ active_members_count }} members</div>
+                        <div>{{ pending_count }} pending</div>
                     </div>
                 </div>
                 {% endif %}

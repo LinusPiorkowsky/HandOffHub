@@ -633,6 +633,9 @@ def dashboard():
     chart_data['sent'].reverse()
     chart_data['received'].reverse()
     chart_data['completed'].reverse()
+
+    active_members_count = len([m for m in current_user.team.members if m.is_active])
+    pending_count = len([h for h in current_user.team.received_handoffs if h.status == HandoffStatus.PENDING])
     
     return render_template('dashboard.html',
                          received=team_handoffs_received,
@@ -640,7 +643,10 @@ def dashboard():
                          my_handoffs=my_handoffs,
                          metrics=metrics,
                          notifications=notifications,
+                         active_members_count=active_members_count,
+                         pending_count=pending_count,
                          chart_data=json.dumps(chart_data))
+
 
 @app.route('/handoff/create', methods=['GET', 'POST'])
 @require_team_member
