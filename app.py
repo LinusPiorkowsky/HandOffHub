@@ -1396,9 +1396,15 @@ def create_demo_data():
 with app.app_context():
     try:
         db.create_all()
-        print("✅ Database tables ready!")
+        print("✅ Database tables created successfully!")
+        
+        # Verify tables exist
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
+        print(f"📊 Created tables: {', '.join(tables)}")
     except Exception as e:
-        print(f"Database initialization: {e}")
+        print(f"Database initialization note: {e}")
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
