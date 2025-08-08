@@ -1114,6 +1114,92 @@ def api_stats():
     
     return jsonify(stats)
 
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    """Admin panel for user management"""
+    if current_user.role != 'admin':
+        flash('Admin access required', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Get all users with eager loading
+    users = User.query.options(
+        joinedload(User.team).joinedload(Team.organization)
+    ).all()
+    
+    # Get counts
+    teams_count = Team.query.count()
+    orgs_count = Organization.query.count()
+    all_teams = Team.query.all()
+    
+    return render_template('admin_users.html',
+                         users=users,
+                         teams_count=teams_count,
+                         orgs_count=orgs_count,
+                         all_teams=all_teams)
+
+@app.route('/admin/users/export')
+@login_required
+def export_users():
+    """Export users to CSV"""
+    if current_user.role != 'admin':
+        flash('Admin access required', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    users = User.query.all()
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow(['ID', 'Name', 'Email', 'Team', 'Organization', 'Role', 'Status', 'Created', 'Last Seen', 'Handoffs Completed'])
+    
+    # Data
+    for user in users:
+        writer.writerow([
+            user.id,
+            user.name,
+            user.email,
+            user.team.name if user.team else '',
+            user.team.organization.name if user.team else '',
+            user.role or 'member',
+            'Active' if user.is_active else 'Inactive',
+            user.created_at.strftime('%Y-%m-%d') if user.created_at else '',
+            user.last_seen.strftime('%Y-%m-%d %H:%M') if user.last_seen else 'Never',
+            user.handoffs_completed or 0
+        ])
+    
+    # Create response
+    output.seek(0)
+    output_bytes = io.BytesIO()
+    output_bytes.write(output.getvalue().encode('utf-8'))
+    output_bytes.seek(0)
+    
+    return send_file(
+        output_bytes,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'users_export_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'
+    )
+
+@app.route('/admin/users/<int:user_id>/toggle-status', methods=['POST'])
+@login_required
+def toggle_user_status(user_id):
+    """Activate/Deactivate user"""
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        return jsonify({'error': 'Cannot deactivate yourself'}), 400
+    
+    user.is_active = not user.is_active
+    db.session.commit()
+    
+    flash(f'User {"activated" if user.is_active else "deactivated"} successfully!', 'success')
+    return redirect(url_for('admin_users'))
+
 @app.route('/api/search')
 @login_required
 def search():
