@@ -1,10 +1,167 @@
+<!-- templates/notifications.html -->
 {% extends "base.html" %}
-{% block title %}No Team{% endblock %}
-
+{% block title %}Notifications - HandoffHub{% endblock %}
 {% block content %}
-<div class="text-center py-20">
-    <h1 class="text-2xl font-bold">You’re not in a team yet!</h1>
-    <p class="mt-2 text-gray-600">Ask an admin to add you or create your own team.</p>
-    <a href="{{ url_for('create_team') }}" class="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-lg">Create Team</a>
+
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Notifications</h1>
+                <p class="text-gray-600 mt-1">Stay updated with all your handoff activities</p>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="markAllAsRead()" class="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                    <i class="fas fa-check-double mr-2"></i>Mark All Read
+                </button>
+                <button onclick="clearAll()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition">
+                    <i class="fas fa-trash mr-2"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="bg-white rounded-xl shadow-sm border mb-6" x-data="{ activeFilter: 'all' }">
+        <div class="border-b px-6">
+            <nav class="flex space-x-8" aria-label="Tabs">
+                <button @click="activeFilter = 'all'"
+                        :class="activeFilter === 'all' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    All Notifications
+                </button>
+                <button @click="activeFilter = 'unread'"
+                        :class="activeFilter === 'unread' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    Unread Only
+                </button>
+                <button @click="activeFilter = 'handoffs'"
+                        :class="activeFilter === 'handoffs' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    Handoffs
+                </button>
+                <button @click="activeFilter = 'comments'"
+                        :class="activeFilter === 'comments' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    Comments
+                </button>
+            </nav>
+        </div>
+
+        <!-- Notifications List -->
+        <div class="p-6">
+            {% if notifications.items %}
+            <div class="space-y-3">
+                {% for notification in notifications.items %}
+                <div class="notification-item border rounded-lg p-4 hover:bg-gray-50 transition 
+                    {% if not notification.is_read %}bg-blue-50 border-blue-200{% endif %}"
+                    x-show="activeFilter === 'all' || 
+                           (activeFilter === 'unread' && !{{ notification.is_read|lower }}) ||
+                           (activeFilter === 'handoffs' && '{{ notification.type }}' === 'new_handoff') ||
+                           (activeFilter === 'comments' && '{{ notification.type }}' === 'comment')">
+                    
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start space-x-3">
+                            <!-- Icon -->
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
+                                {% if notification.type == 'new_handoff' %}bg-indigo-100 text-indigo-600
+                                {% elif notification.type == 'comment' %}bg-blue-100 text-blue-600
+                                {% elif notification.type == 'status_change' %}bg-green-100 text-green-600
+                                {% elif notification.type == 'mention' %}bg-purple-100 text-purple-600
+                                {% elif notification.type == 'deadline' %}bg-red-100 text-red-600
+                                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                <i class="fas 
+                                    {% if notification.type == 'new_handoff' %}fa-exchange-alt
+                                    {% elif notification.type == 'comment' %}fa-comment
+                                    {% elif notification.type == 'status_change' %}fa-tasks
+                                    {% elif notification.type == 'mention' %}fa-at
+                                    {% elif notification.type == 'deadline' %}fa-clock
+                                    {% else %}fa-bell{% endif %}"></i>
+                            </div>
+                            
+                            <!-- Content -->
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900 
+                                    {% if not notification.is_read %}text-indigo-600{% endif %}">
+                                    {{ notification.title }}
+                                </h3>
+                                <p class="text-gray-600 mt-1">{{ notification.message }}</p>
+                                
+                                {% if notification.handoff_id %}
+                                <a href="{{ url_for('view_handoff', handoff_id=notification.handoff_id) }}" 
+                                   class="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800 mt-2">
+                                    View Handoff <i class="fas fa-arrow-right ml-1"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Time & Actions -->
+                        <div class="text-right ml-4">
+                            <p class="text-xs text-gray-500">
+                                {{ notification.created_at.strftime('%b %d at %H:%M') }}
+                            </p>
+                            {% if not notification.is_read %}
+                            <button onclick="markAsRead({{ notification.id }})" 
+                                    class="text-xs text-indigo-600 hover:text-indigo-800 mt-1">
+                                Mark as read
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            <div class="mt-6 flex items-center justify-between">
+                <div class="text-sm text-gray-700">
+                    Showing {{ notifications.page }} of {{ notifications.pages }} pages
+                </div>
+                <div class="flex space-x-2">
+                    {% if notifications.has_prev %}
+                    <a href="{{ url_for('notifications', page=notifications.prev_num) }}" 
+                       class="px-3 py-1 border rounded hover:bg-gray-50">
+                        Previous
+                    </a>
+                    {% endif %}
+                    {% if notifications.has_next %}
+                    <a href="{{ url_for('notifications', page=notifications.next_num) }}" 
+                       class="px-3 py-1 border rounded hover:bg-gray-50">
+                        Next
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-bell-slash text-4xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500">No notifications yet</p>
+                <p class="text-sm text-gray-400 mt-2">When you receive notifications, they'll appear here</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
+
+<script>
+function markAsRead(notificationId) {
+    fetch(`/notifications/${notificationId}/read`, { method: 'POST' })
+        .then(() => location.reload());
+}
+
+function markAllAsRead() {
+    fetch('/notifications/mark-all-read', { method: 'POST' })
+        .then(() => location.reload());
+}
+
+function clearAll() {
+    if (confirm('Are you sure you want to clear all notifications?')) {
+        fetch('/notifications/clear-all', { method: 'POST' })
+            .then(() => location.reload());
+    }
+}
+</script>
+
 {% endblock %}
