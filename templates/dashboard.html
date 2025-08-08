@@ -1,0 +1,144 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+{% block title %}Dashboard - HandoffHub{% endblock %}
+{% block content %}
+<div x-data="{ activeTab: 'received' }">
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-4 gap-4 mb-8" hx-get="/api/stats" hx-trigger="every 30s" hx-swap="outerHTML">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div class="text-2xl font-bold text-gray-900">{{ pending_count }}</div>
+            <div class="text-sm text-gray-600">Pending</div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div class="text-2xl font-bold text-blue-600">{{ in_progress_count }}</div>
+            <div class="text-sm text-gray-600">In Progress</div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div class="text-2xl font-bold text-red-600">{{ overdue_count }}</div>
+            <div class="text-sm text-gray-600">Overdue</div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow">
+            <a href="{{ url_for('create_handoff') }}" class="block text-center">
+                <div class="text-2xl font-bold text-indigo-600">+</div>
+                <div class="text-sm text-gray-600">Create New</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- My Assignments -->
+    {% if my_handoffs %}
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
+        <h3 class="font-semibold text-yellow-900 mb-2">Your Assignments</h3>
+        <div class="space-y-2">
+            {% for handoff in my_handoffs %}
+            <a href="{{ url_for('view_handoff', handoff_id=handoff.id) }}" class="block hover:bg-yellow-100 p-2 rounded">
+                <span class="font-medium">{{ handoff.title }}</span>
+                <span class="text-sm text-gray-600 ml-2">from {{ handoff.from_team.name }}</span>
+                {% if handoff.is_overdue %}
+                <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded ml-2">OVERDUE</span>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabs -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="border-b">
+            <nav class="flex -mb-px">
+                <button @click="activeTab = 'received'" 
+                        :class="activeTab === 'received' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-2 px-4 border-b-2 font-medium text-sm">
+                    Received Handoffs
+                </button>
+                <button @click="activeTab = 'sent'" 
+                        :class="activeTab === 'sent' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        class="py-2 px-4 border-b-2 font-medium text-sm">
+                    Sent Handoffs
+                </button>
+            </nav>
+        </div>
+
+        <!-- Received Handoffs -->
+        <div x-show="activeTab === 'received'" class="p-6">
+            {% if received %}
+            <div class="space-y-4">
+                {% for handoff in received %}
+                <div class="border rounded-lg p-4 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <a href="{{ url_for('view_handoff', handoff_id=handoff.id) }}" class="text-lg font-medium text-indigo-600 hover:text-indigo-800">
+                                {{ handoff.title }}
+                            </a>
+                            <p class="text-sm text-gray-600 mt-1">
+                                From: {{ handoff.from_team.name }} • Created by: {{ handoff.creator.name }}
+                            </p>
+                            <p class="text-sm text-gray-500 mt-1">{{ handoff.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 text-xs rounded-full 
+                                {% if handoff.status.value == 'pending' %}bg-yellow-100 text-yellow-800
+                                {% elif handoff.status.value == 'in_progress' %}bg-blue-100 text-blue-800
+                                {% elif handoff.status.value == 'completed' %}bg-green-100 text-green-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ handoff.status.value.replace('_', ' ').title() }}
+                            </span>
+                            <span class="px-2 py-1 text-xs rounded-full 
+                                {% if handoff.priority.value == 'urgent' %}bg-red-100 text-red-800
+                                {% elif handoff.priority.value == 'high' %}bg-orange-100 text-orange-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ handoff.priority.value.title() }}
+                            </span>
+                            {% if handoff.is_overdue %}
+                            <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">OVERDUE</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500">No received handoffs yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- Sent Handoffs -->
+        <div x-show="activeTab === 'sent'" x-cloak class="p-6">
+            {% if sent %}
+            <div class="space-y-4">
+                {% for handoff in sent %}
+                <div class="border rounded-lg p-4 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <a href="{{ url_for('view_handoff', handoff_id=handoff.id) }}" class="text-lg font-medium text-indigo-600 hover:text-indigo-800">
+                                {{ handoff.title }}
+                            </a>
+                            <p class="text-sm text-gray-600 mt-1">
+                                To: {{ handoff.to_team.name }}
+                                {% if handoff.assignee %}
+                                • Assigned to: {{ handoff.assignee.name }}
+                                {% endif %}
+                            </p>
+                            <p class="text-sm text-gray-500 mt-1">{{ handoff.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 text-xs rounded-full 
+                                {% if handoff.status.value == 'pending' %}bg-yellow-100 text-yellow-800
+                                {% elif handoff.status.value == 'in_progress' %}bg-blue-100 text-blue-800
+                                {% elif handoff.status.value == 'completed' %}bg-green-100 text-green-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ handoff.status.value.replace('_', ' ').title() }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500">No sent handoffs yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

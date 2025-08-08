@@ -1,0 +1,71 @@
+<!-- templates/register.html -->
+{% extends "base.html" %}
+{% block title %}Register - HandoffHub{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-2xl font-bold mb-6 text-center">Create Your Account</h2>
+        
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                {{ form.name(class="w-full border rounded-lg px-3 py-2") }}
+                {% if form.name.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.name.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                {{ form.email(class="w-full border rounded-lg px-3 py-2") }}
+                {% if form.email.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.email.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Organization Name</label>
+                {{ form.organization_name(class="w-full border rounded-lg px-3 py-2") }}
+                {% if form.organization_name.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.organization_name.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Team Name</label>
+                {{ form.team_name(class="w-full border rounded-lg px-3 py-2") }}
+                {% if form.team_name.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.team_name.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                {{ form.password(class="w-full border rounded-lg px-3 py-2") }}
+                {% if form.password.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.password.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                {{ form.confirm_password(class="w-full border rounded-lg px-3 py-2") }}
+                {% if form.confirm_password.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.confirm_password.errors[0] }}</p>
+                {% endif %}
+            </div>
+
+            <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">
+                Create Account
+            </button>
+        </form>
+
+        <p class="mt-4 text-center text-sm text-gray-600">
+            Already have an account? 
+            <a href="{{ url_for('login') }}" class="text-indigo-600 hover:text-indigo-800">Login here</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
