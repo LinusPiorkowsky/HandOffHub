@@ -7,7 +7,7 @@ services:
     ports:
       - "80:5000"
     environment:
-      - DATABASE_URL=postgresql://handoff:${DB_PASSWORD}@db:5432/handoffhub
+      - DATABASE_URL=postgresql://postgres:uzCcUGoDsrJatKRDEQueNLdIhSpIElzT@gondola.proxy.rlwy.net:47326/railway
       - SECRET_KEY=${SECRET_KEY}
       - FLASK_ENV=production
       - MAIL_SERVER=${MAIL_SERVER}
