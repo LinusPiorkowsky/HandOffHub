@@ -17,8 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # App-Dateien kopieren
 COPY . .
 
-# Port - Railway setzt PORT automatisch
+# Make start script executable
+RUN chmod +x start.sh
+
+# Railway will set PORT automatically
 EXPOSE 8080
 
-# Start-Befehl: Nur Gunicorn starten (DB init passiert in app.py)
-CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+# Use the shell script to start the app
+CMD ["./start.sh"]
