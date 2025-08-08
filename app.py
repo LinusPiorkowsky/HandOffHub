@@ -25,26 +25,12 @@ import csv
 # Initialize Flask app
 app = Flask(__name__)
 
-# Initialize extensions
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
-login_manager.login_message_category = 'info'
-mail = Mail(app)
-
-# Create tables if they don't exist
-with app.app_context():
-    try:
-        db.create_all()
-        print("Database tables created/verified")
-    except Exception as e:
-        print(f"Note: {e}")
-
-# Configuration
+# Database configuration MUSS VOR SQLAlchemy init kommen!
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///handoffhub.db')
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
+# Set ALL configuration BEFORE initializing extensions
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -62,7 +48,7 @@ app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@handoffhub.com')
 
-# Initialize extensions
+# NOW initialize extensions (nur EINMAL!)
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
