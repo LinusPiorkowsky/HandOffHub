@@ -22,28 +22,23 @@ import enum
 import io
 import csv
 
-# Database initialization helper
-def init_db_if_needed():
-    """Initialize database if it doesn't exist"""
-    try:
-        with app.app_context():
-            # Try to query - if it fails, DB doesn't exist
-            from sqlalchemy import inspect
-            inspector = inspect(db.engine)
-            if 'users' not in inspector.get_table_names():
-                print("Creating database tables...")
-                db.create_all()
-                print("Database tables created!")
-    except Exception as e:
-        print(f"DB Init check error: {e}")
-        with app.app_context():
-            db.create_all()
-
-# Run on startup
-init_db_if_needed()
-
 # Initialize Flask app
 app = Flask(__name__)
+
+# Initialize extensions
+db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+login_manager.login_message_category = 'info'
+mail = Mail(app)
+
+# Create tables if they don't exist
+with app.app_context():
+    try:
+        db.create_all()
+        print("Database tables created/verified")
+    except Exception as e:
+        print(f"Note: {e}")
 
 # Configuration
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///handoffhub.db')
@@ -1412,7 +1407,12 @@ def create_demo_data():
     print("\n🚀 Your HandoffHub is ready with sample data!")
 
 
-if __name__ == '__main__':
-    with app.app_context():
+with app.app_context():
+    try:
         db.create_all()
+        print("✅ Database tables ready!")
+    except Exception as e:
+        print(f"Database initialization: {e}")
+
+if __name__ == '__main__':
     app.run(debug=True, port=5000)
