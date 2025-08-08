@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Error - HandoffHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+    <div class="max-w-md mx-auto text-center">
+        <div class="mb-8">
+            <i class="fas fa-exclamation-triangle text-6xl text-red-400 mb-4"></i>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">500 - Server Error</h1>
+            <p class="text-gray-600">Something went wrong on our end. We're working to fix it!</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+            <div class="text-sm text-gray-600">
+                <p class="mb-2">What you can try:</p>
+                <ul class="text-left space-y-1">
+                    <li>• Refresh the page</li>
+                    <li>• Go back and try again</li>
+                    <li>• Contact support if the issue persists</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="space-y-4">
+            <button onclick="window.location.reload()" class="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors mr-2">
+                <i class="fas fa-sync-alt mr-2"></i>
+                Refresh Page
+            </button>
+            
+            <a href="/" class="inline-block bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors">
+                <i class="fas fa-home mr-2"></i>
+                Go Home
+            </a>
+        </div>
+        
+        <div class="mt-8 text-xs text-gray-400">
+            HandoffHub - Inter-departmental Handoff Tracking
+        </div>
+    </div>
+</body>
+</html>
