@@ -27,8 +27,16 @@ app = Flask(__name__)
 
 # Database configuration MUSS VOR SQLAlchemy init kommen!
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///handoffhub.db')
+
+# Heroku/Railway-URL-Anpassung (alten Prefix ersetzen)
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+# SSL erzwingen, wenn Postgres und noch kein sslmode gesetzt
+if database_url.startswith("postgresql://") and "sslmode=" not in database_url:
+    separator = '&' if '?' in database_url else '?'
+    database_url += f"{separator}sslmode=require"
+
 
 # Set ALL configuration BEFORE initializing extensions
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))

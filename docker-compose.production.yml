@@ -1,5 +1,4 @@
-# docker-compose.production.yml
-version: '3.8' # Use version 3.8 for compatibility with most Docker setups
+version: '3.8'
 
 services:
   web:
@@ -7,28 +6,20 @@ services:
     ports:
       - "80:5000"
     environment:
-      - DATABASE_URL=postgresql://postgres:uzCcUGoDsrJatKRDEQueNLdIhSpIElzT@gondola.proxy.rlwy.net:47326/railway
+      # Railway DB mit SSL erzwingen
+      - DATABASE_URL=postgresql://postgres:uzCcUGoDsrJatKRDEQueNLdIhSpIElzT@gondola.proxy.rlwy.net:47326/railway?sslmode=require
       - SECRET_KEY=f4b28f9e64b13709d7f6b3b79cf6a4a79c6ff27d01fcbf628aa0b47b93bcd8e1
       - FLASK_ENV=production
       - MAIL_SERVER=smtp.gmail.com
+      - MAIL_PORT=587
+      - MAIL_USE_TLS=true
       - MAIL_USERNAME=linuspiorkowsky@gmail.com
       - MAIL_PASSWORD=Natasha78
       - REDIS_URL=redis://redis:6379
     depends_on:
-      - db
       - redis
     restart: always
     command: gunicorn app:app --bind 0.0.0.0:5000 --workers 4 --threads 2
-
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_USER=handoff
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=handoffhub
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: always
 
   redis:
     image: redis:7-alpine
@@ -49,5 +40,4 @@ services:
     restart: always
 
 volumes:
-  postgres_data:
   redis_data:
