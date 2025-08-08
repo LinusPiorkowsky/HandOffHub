@@ -4,44 +4,20 @@ services:
   web:
     build: .
     ports:
-      - "80:5000"
+      - "${PORT:-8080}:8080"
     environment:
-<<<<<<< HEAD
-      # Railway DB mit SSL erzwingen
-      - DATABASE_URL=postgresql://postgres:uzCcUGoDsrJatKRDEQueNLdIhSpIElzT@gondola.proxy.rlwy.net:47326/railway?sslmode=require
-=======
-      - DATABASE_URL=postgresql://handoff:${DB_PASSWORD}@db:5432/handoffhub
->>>>>>> origin/main
-      - SECRET_KEY=f4b28f9e64b13709d7f6b3b79cf6a4a79c6ff27d01fcbf628aa0b47b93bcd8e1
+      # Railway PostgreSQL mit SSL
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
       - FLASK_ENV=production
-      - MAIL_SERVER=smtp.gmail.com
-      - MAIL_PORT=587
-      - MAIL_USE_TLS=true
-      - MAIL_USERNAME=linuspiorkowsky@gmail.com
-      - MAIL_PASSWORD=Natasha78
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
-    restart: always
-    command: gunicorn app:app --bind 0.0.0.0:5000 --workers 4 --threads 2
-
-  redis:
-    image: redis:7-alpine
-    restart: always
-    volumes:
-      - redis_data:/data
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-    depends_on:
-      - web
+      - PORT=${PORT:-8080}
+      - MAIL_SERVER=${MAIL_SERVER:-smtp.gmail.com}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USE_TLS=${MAIL_USE_TLS:-true}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+    command: gunicorn app:app --bind 0.0.0.0:${PORT:-8080} --workers 2 --threads 4 --timeout 120
     restart: always
 
 volumes:
-  redis_data:
+  postgres_data:
