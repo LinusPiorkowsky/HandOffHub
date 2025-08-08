@@ -1,0 +1,90 @@
+<!-- templates/profile.html -->
+{% extends "base.html" %}
+{% block title %}Profile - HandoffHub{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-xl shadow-sm border">
+        <!-- Profile Header -->
+        <div class="p-6 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
+            <div class="flex items-center space-x-4">
+                <div class="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-bold"
+                     style="background-color: {{ current_user.avatar_color }}">
+                    {{ current_user.get_initials() }}
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ current_user.name }}</h1>
+                    <p class="text-gray-600">{{ current_user.email }}</p>
+                    <div class="flex items-center space-x-4 mt-2 text-sm">
+                        <span class="px-2 py-1 bg-white rounded-full">
+                            <i class="fas fa-users mr-1 text-gray-400"></i>{{ current_user.team.name if current_user.team else 'No Team' }}
+                        </span>
+                        <span class="px-2 py-1 bg-white rounded-full">
+                            <i class="fas fa-shield-alt mr-1 text-gray-400"></i>{{ current_user.role|title }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Content -->
+        <div class="p-6">
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Account Information -->
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-4">Account Information</h3>
+                    <dl class="space-y-3">
+                        <div>
+                            <dt class="text-sm text-gray-500">Member Since</dt>
+                            <dd class="text-gray-900">{{ current_user.created_at.strftime('%B %d, %Y') }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-500">Last Active</dt>
+                            <dd class="text-gray-900">{{ current_user.last_seen.strftime('%B %d at %H:%M') if current_user.last_seen else 'Now' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-500">Organization</dt>
+                            <dd class="text-gray-900">{{ current_user.team.organization.name if current_user.team else 'None' }}</dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-4">Performance Metrics</h3>
+                    <dl class="space-y-3">
+                        <div>
+                            <dt class="text-sm text-gray-500">Handoffs Completed</dt>
+                            <dd class="text-2xl font-bold text-indigo-600">{{ current_user.handoffs_completed }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-500">Average Completion Time</dt>
+                            <dd class="text-gray-900">{{ current_user.average_completion_time|round(1) }} hours</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-500">On-Time Rate</dt>
+                            <dd class="text-gray-900">
+                                <div class="flex items-center">
+                                    <div class="w-32 bg-gray-200 rounded-full h-2 mr-3">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: {{ current_user.on_time_rate }}%"></div>
+                                    </div>
+                                    <span>{{ current_user.on_time_rate|round(1) }}%</span>
+                                </div>
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="mt-8 pt-6 border-t flex space-x-3">
+                <a href="/settings" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                    <i class="fas fa-cog mr-2"></i>Settings
+                </a>
+                <button class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i class="fas fa-key mr-2"></i>Change Password
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
