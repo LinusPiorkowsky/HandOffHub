@@ -458,35 +458,6 @@ def inject_notifications():
     return dict(unread_notifications=0)
 
 # Routes
-@app.route('/')
-def index():
-    try:
-        if current_user and current_user.is_authenticated:
-            return redirect(url_for('dashboard'))
-    except:
-        pass
-    
-    # Fallback to home page
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>HandoffHub</title>
-        <style>
-            body { font-family: Arial; text-align: center; padding: 50px; }
-            .button { display: inline-block; padding: 10px 20px; margin: 10px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; }
-        </style>
-    </head>
-    <body>
-        <h1>🚀 HandoffHub</h1>
-        <p>Welcome to HandoffHub!</p>
-        <a href="/init-database-now-delete-this" class="button">Initialize Database</a>
-        <a href="/login" class="button">Login</a>
-        <a href="/register" class="button">Register</a>
-    </body>
-    </html>
-    """
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
