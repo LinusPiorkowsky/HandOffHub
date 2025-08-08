@@ -8,11 +8,11 @@ services:
       - "80:5000"
     environment:
       - DATABASE_URL=postgresql://postgres:uzCcUGoDsrJatKRDEQueNLdIhSpIElzT@gondola.proxy.rlwy.net:47326/railway
-      - SECRET_KEY=${SECRET_KEY}
+      - SECRET_KEY=f4b28f9e64b13709d7f6b3b79cf6a4a79c6ff27d01fcbf628aa0b47b93bcd8e1
       - FLASK_ENV=production
-      - MAIL_SERVER=${MAIL_SERVER}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_SERVER=smtp.gmail.com
+      - MAIL_USERNAME=linuspiorkowsky@gmail.com
+      - MAIL_PASSWORD=Natasha78
       - REDIS_URL=redis://redis:6379
     depends_on:
       - db
