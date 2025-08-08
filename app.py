@@ -22,6 +22,26 @@ import enum
 import io
 import csv
 
+# Database initialization helper
+def init_db_if_needed():
+    """Initialize database if it doesn't exist"""
+    try:
+        with app.app_context():
+            # Try to query - if it fails, DB doesn't exist
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            if 'users' not in inspector.get_table_names():
+                print("Creating database tables...")
+                db.create_all()
+                print("Database tables created!")
+    except Exception as e:
+        print(f"DB Init check error: {e}")
+        with app.app_context():
+            db.create_all()
+
+# Run on startup
+init_db_if_needed()
+
 # Initialize Flask app
 app = Flask(__name__)
 
@@ -360,7 +380,10 @@ class TeamForm(FlaskForm):
 # Login Manager
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    try:
+        return User.query.get(int(user_id))
+    except:
+        return None
 
 # Helper Functions
 def create_notification(user_id, handoff_id, notification_type, title, message):
@@ -456,9 +479,32 @@ def inject_notifications():
 # Routes
 @app.route('/')
 def index():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return render_template('index.html')
+    try:
+        if current_user and current_user.is_authenticated:
+            return redirect(url_for('dashboard'))
+    except:
+        pass
+    
+    # Fallback to home page
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>HandoffHub</title>
+        <style>
+            body { font-family: Arial; text-align: center; padding: 50px; }
+            .button { display: inline-block; padding: 10px 20px; margin: 10px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <h1>🚀 HandoffHub</h1>
+        <p>Welcome to HandoffHub!</p>
+        <a href="/init-database-now-delete-this" class="button">Initialize Database</a>
+        <a href="/login" class="button">Login</a>
+        <a href="/register" class="button">Register</a>
+    </body>
+    </html>
+    """
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
