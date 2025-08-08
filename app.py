@@ -653,8 +653,29 @@ def dashboard():
     date_from = datetime.utcnow() - timedelta(days=30)
     
     if not current_user.team_id:
-        # User without team - show limited dashboard
-        return render_template('dashboard_no_team.html')
+        # User without team - show options to join or create team
+        email_domain = current_user.email.split('@')[1] if '@' in current_user.email else None
+        available_teams = []
+        
+        if email_domain:
+            # Finde Teams in der gleichen Organisation
+            other_users = User.query.filter(
+                User.email.like(f'%@{email_domain}'),
+                User.team_id != None,
+                User.id != current_user.id
+            ).all()
+            
+            team_ids = list(set([u.team_id for u in other_users]))
+            if team_ids:
+                available_teams = Team.query.filter(Team.id.in_(team_ids)).all()
+        
+        # Wenn keine Teams gefunden, zeige alle Teams der Default-Organisation
+        if not available_teams:
+            org = Organization.query.first()
+            if org:
+                available_teams = Team.query.filter_by(organization_id=org.id).all()
+        
+        return render_template('dashboard_no_team.html', available_teams=available_teams)
     
     # Team handoffs
     team_handoffs_received = Handoff.query.filter_by(to_team_id=current_user.team_id)\
@@ -740,7 +761,6 @@ def dashboard():
                          active_members_count=active_members_count,
                          pending_count=pending_count,
                          chart_data=json.dumps(chart_data))
-
 
 @app.route('/handoff/create', methods=['GET', 'POST'])
 @require_team_member
@@ -1042,14 +1062,41 @@ def add_comment(handoff_id):
 @app.route('/teams')
 @login_required
 def teams():
-    if not current_user.team:
-        org = Organization.query.first()
-        if not org:
-            org = Organization(name="Default Organization")
-            db.session.add(org)
-            db.session.commit()
-    else:
+    # Bestimme die Organisation des Users
+    if current_user.team:
         org = current_user.team.organization
+    else:
+        # User hat kein Team - versuche Organisation zu finden
+        # Prüfe ob es andere User mit gleicher Email-Domain gibt
+        email_domain = current_user.email.split('@')[1] if '@' in current_user.email else None
+        
+        if email_domain:
+            # Suche nach anderen Usern mit gleicher Domain
+            other_user = User.query.filter(
+                User.email.like(f'%@{email_domain}'),
+                User.team_id != None,
+                User.id != current_user.id
+            ).first()
+            
+            if other_user and other_user.team:
+                org = other_user.team.organization
+            else:
+                # Erstelle neue Organisation basierend auf Email-Domain
+                org = Organization.query.filter_by(domain=email_domain).first()
+                if not org:
+                    org = Organization(
+                        name=f"{email_domain.split('.')[0].title()} Organization",
+                        domain=email_domain
+                    )
+                    db.session.add(org)
+                    db.session.commit()
+        else:
+            # Fallback: Erste verfügbare Organisation
+            org = Organization.query.first()
+            if not org:
+                org = Organization(name="Default Organization")
+                db.session.add(org)
+                db.session.commit()
     
     teams = Team.query.filter_by(organization_id=org.id).all()
     
@@ -1060,29 +1107,119 @@ def teams():
     
     form = TeamForm()
     
-    return render_template('teams.html', teams=teams, form=form, organization=org)
+    return render_template('teams.html', 
+                         teams=teams, 
+                         form=form, 
+                         organization=org,
+                         user_has_no_team=(current_user.team_id is None))
 
 @app.route('/teams/create', methods=['POST'])
 @login_required
 def create_team():
-    if current_user.role not in ['admin', 'team_lead']:
+    # Erlaubt Usern ohne Team, ein neues Team zu erstellen
+    if current_user.team and current_user.role not in ['admin', 'team_lead']:
         flash('Only administrators can create teams.', 'danger')
         return redirect(url_for('teams'))
     
     form = TeamForm()
     if form.validate_on_submit():
+        # Bestimme die Organisation
+        if current_user.team:
+            org_id = current_user.team.organization_id
+        else:
+            # User hat kein Team - nutze die gefundene/erstellte Organisation
+            email_domain = current_user.email.split('@')[1] if '@' in current_user.email else None
+            
+            if email_domain:
+                org = Organization.query.filter_by(domain=email_domain).first()
+                if not org:
+                    other_user = User.query.filter(
+                        User.email.like(f'%@{email_domain}'),
+                        User.team_id != None,
+                        User.id != current_user.id
+                    ).first()
+                    
+                    if other_user and other_user.team:
+                        org = other_user.team.organization
+                    else:
+                        org = Organization(
+                            name=f"{email_domain.split('.')[0].title()} Organization",
+                            domain=email_domain
+                        )
+                        db.session.add(org)
+                        db.session.flush()
+            else:
+                org = Organization.query.first()
+                if not org:
+                    org = Organization(name="Default Organization")
+                    db.session.add(org)
+                    db.session.flush()
+            
+            org_id = org.id
+        
         team = Team(
             name=form.name.data,
             description=form.description.data,
             color=form.color.data,
-            organization_id=current_user.team.organization_id
+            organization_id=org_id
         )
         db.session.add(team)
-        db.session.commit()
+        db.session.flush()
         
-        flash(f'Team "{team.name}" created successfully!', 'success')
+        # Wenn User kein Team hat, füge ihn dem neuen Team hinzu
+        if not current_user.team_id:
+            current_user.team_id = team.id
+            current_user.role = 'team_lead'  # Ersteller wird Team-Lead
+            flash(f'Team "{team.name}" created and you have been assigned as team lead!', 'success')
+        else:
+            flash(f'Team "{team.name}" created successfully!', 'success')
+        
+        db.session.commit()
     
     return redirect(url_for('teams'))
+
+@app.route('/teams/join/<int:team_id>', methods=['POST'])
+@login_required
+def join_team(team_id):
+    """Allow users without a team to join an existing team"""
+    if current_user.team_id:
+        flash('You are already part of a team. Contact an admin to change teams.', 'warning')
+        return redirect(url_for('teams'))
+    
+    team = Team.query.get_or_404(team_id)
+    
+    # Prüfe ob User zur gleichen Organisation gehört (basierend auf Email-Domain)
+    email_domain = current_user.email.split('@')[1] if '@' in current_user.email else None
+    
+    if email_domain and team.organization.domain:
+        if email_domain != team.organization.domain:
+            # Prüfe ob andere User mit gleicher Domain in diesem Team sind
+            same_domain_users = User.query.filter(
+                User.email.like(f'%@{email_domain}'),
+                User.team_id == team_id
+            ).count()
+            
+            if same_domain_users == 0:
+                flash('You cannot join this team. Please contact an administrator.', 'danger')
+                return redirect(url_for('teams'))
+    
+    # User dem Team zuweisen
+    current_user.team_id = team_id
+    current_user.role = 'member'  # Neue Mitglieder werden normale Member
+    
+    # Benachrichtigung erstellen
+    create_notification(
+        current_user.id,
+        None,
+        'team_joined',
+        f'Welcome to {team.name}!',
+        f'You have successfully joined the {team.name} team.'
+    )
+    
+    db.session.commit()
+    
+    flash(f'You have successfully joined the {team.name} team!', 'success')
+    return redirect(url_for('dashboard'))
 
 @app.route('/notifications')
 @login_required
