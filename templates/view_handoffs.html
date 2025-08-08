@@ -1,121 +1,546 @@
 <!-- templates/view_handoff.html -->
 {% extends "base.html" %}
-{% block title %}{{ handoff.title }} - HandoffHub{% endblock %}
+{% block title %}{{ handoff.reference_id }}: {{ handoff.title }} - HandoffHub{% endblock %}
 {% block content %}
-<div class="bg-white rounded-lg shadow-lg p-6">
-    <!-- Header -->
-    <div class="border-b pb-4 mb-4">
-        <h1 class="text-2xl font-bold text-gray-900">{{ handoff.title }}</h1>
-        <div class="mt-2 flex items-center space-x-4 text-sm text-gray-600">
-            <span>From: <strong>{{ handoff.from_team.name }}</strong></span>
-            <span>To: <strong>{{ handoff.to_team.name }}</strong></span>
-            <span>Created by: <strong>{{ handoff.creator.name }}</strong></span>
-            <span>{{ handoff.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
-        </div>
+
+<div class="max-w-7xl mx-auto" x-data="{ 
+    showStatusModal: false, 
+    showEscalateModal: false,
+    showCompleteModal: false,
+    activeTab: 'overview',
+    selectedStatus: '',
+    completionNotes: '',
+    escalationReason: ''
+}">
+    
+    <!-- Breadcrumb -->
+    <div class="mb-4 flex items-center text-sm text-gray-600">
+        <a href="{{ url_for('dashboard') }}" class="hover:text-indigo-600">
+            <i class="fas fa-home"></i>
+        </a>
+        <i class="fas fa-chevron-right mx-2 text-xs"></i>
+        <a href="/handoffs" class="hover:text-indigo-600">Handoffs</a>
+        <i class="fas fa-chevron-right mx-2 text-xs"></i>
+        <span class="text-gray-900 font-medium">{{ handoff.reference_id }}</span>
     </div>
 
-    <!-- Status and Actions -->
-    <div class="flex justify-between items-center mb-6">
-        <div class="flex items-center space-x-3">
-            <span class="px-3 py-1 rounded-full text-sm font-medium
-                {% if handoff.status.value == 'pending' %}bg-yellow-100 text-yellow-800
-                {% elif handoff.status.value == 'in_progress' %}bg-blue-100 text-blue-800
-                {% elif handoff.status.value == 'completed' %}bg-green-100 text-green-800
-                {% else %}bg-gray-100 text-gray-800{% endif %}">
-                {{ handoff.status.value.replace('_', ' ').title() }}
-            </span>
+    <!-- Main Header Card -->
+    <div class="bg-white rounded-2xl shadow-lg border overflow-hidden mb-6">
+        <!-- Gradient Header based on Priority -->
+        <div class="p-6 bg-gradient-to-br 
+            {% if handoff.priority.value == 'critical' %}from-red-500 to-pink-600
+            {% elif handoff.priority.value == 'urgent' %}from-orange-500 to-red-500
+            {% elif handoff.priority.value == 'high' %}from-yellow-500 to-orange-500
+            {% elif handoff.priority.value == 'medium' %}from-blue-500 to-indigo-600
+            {% else %}from-gray-400 to-gray-600{% endif %}">
             
-            <span class="px-3 py-1 rounded-full text-sm font-medium
-                {% if handoff.priority.value == 'urgent' %}bg-red-100 text-red-800
-                {% elif handoff.priority.value == 'high' %}bg-orange-100 text-orange-800
-                {% else %}bg-gray-100 text-gray-800{% endif %}">
-                Priority: {{ handoff.priority.value.title() }}
-            </span>
-
-            {% if handoff.is_overdue %}
-            <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">OVERDUE</span>
-            {% endif %}
-
-            {% if handoff.deadline %}
-            <span class="text-sm text-gray-600">
-                Deadline: {{ handoff.deadline.strftime('%Y-%m-%d %H:%M') }}
-            </span>
-            {% endif %}
-        </div>
-
-        {% if current_user.team_id == handoff.to_team_id and handoff.status.value != 'completed' %}
-        <form method="POST" action="{{ url_for('update_handoff_status', handoff_id=handoff.id) }}" class="flex space-x-2">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            
-            {% if handoff.status.value == 'pending' %}
-            <button type="submit" name="status" value="in_progress" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                Start Working
-            </button>
-            {% endif %}
-            
-            {% if handoff.status.value == 'in_progress' %}
-            <button type="submit" name="status" value="waiting_info" class="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
-                Need Info
-            </button>
-            <button type="submit" name="status" value="completed" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                Mark Complete
-            </button>
-            {% endif %}
-            
-            {% if handoff.status.value == 'waiting_info' %}
-            <button type="submit" name="status" value="in_progress" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                Resume Work
-            </button>
-            {% endif %}
-        </form>
-        {% endif %}
-    </div>
-
-    <!-- Description -->
-    <div class="mb-6">
-        <h3 class="text-lg font-semibold mb-2">Description</h3>
-        <div class="bg-gray-50 p-4 rounded">
-            {{ handoff.description or 'No description provided.' }}
-        </div>
-    </div>
-
-    <!-- Assignment Info -->
-    {% if handoff.assignee %}
-    <div class="mb-6 bg-blue-50 p-4 rounded">
-        <strong>Assigned to:</strong> {{ handoff.assignee.name }} ({{ handoff.assignee.team.name }})
-        {% if handoff.started_at %}
-        <br><strong>Started:</strong> {{ handoff.started_at.strftime('%Y-%m-%d %H:%M') }}
-        {% endif %}
-    </div>
-    {% endif %}
-
-    <!-- Comments Section -->
-    <div>
-        <h3 class="text-lg font-semibold mb-4">Comments & Updates</h3>
-        
-        <!-- Add Comment Form -->
-        <form method="POST" action="{{ url_for('add_comment', handoff_id=handoff.id) }}" class="mb-4">
-            {{ form.hidden_tag() }}
-            <div class="flex space-x-2">
-                <textarea name="content" rows="2" class="flex-1 border rounded-lg px-3 py-2" placeholder="Add a comment..."></textarea>
-                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Post</button>
-            </div>
-        </form>
-
-        <!-- Comments List -->
-        <div class="space-y-3">
-            {% for comment in comments %}
-            <div class="bg-gray-50 p-3 rounded">
-                <div class="flex justify-between mb-1">
-                    <span class="font-medium text-sm">{{ comment.user.name }}</span>
-                    <span class="text-xs text-gray-500">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between">
+                <div class="text-white">
+                    <div class="flex items-center space-x-3 mb-2">
+                        <span class="text-sm font-medium opacity-90">{{ handoff.reference_id }}</span>
+                        <span class="text-xs px-2 py-1 bg-white/20 rounded-full">
+                            {{ handoff.handoff_type.value.replace('_', ' ').upper() }}
+                        </span>
+                    </div>
+                    <h1 class="text-3xl font-bold mb-3">{{ handoff.title }}</h1>
+                    
+                    <!-- Meta Information -->
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <div class="flex items-center">
+                            <i class="fas fa-building mr-2 opacity-75"></i>
+                            <span class="opacity-90">From:</span>
+                            <span class="ml-1 font-semibold">{{ handoff.from_team.name }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-arrow-right mx-2 opacity-50"></i>
+                            <span class="opacity-90">To:</span>
+                            <span class="ml-1 font-semibold">{{ handoff.to_team.name }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-user mr-2 opacity-75"></i>
+                            <span class="opacity-90">Created by:</span>
+                            <span class="ml-1 font-semibold">{{ handoff.creator.name }}</span>
+                        </div>
+                    </div>
                 </div>
-                <p class="text-gray-700">{{ comment.content }}</p>
+
+                <!-- Status Badge -->
+                <div class="mt-4 md:mt-0">
+                    <div class="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur rounded-xl">
+                        <div class="w-3 h-3 rounded-full mr-2 animate-pulse
+                            {% if handoff.status.value == 'completed' %}bg-green-400
+                            {% elif handoff.status.value == 'in_progress' %}bg-blue-400
+                            {% elif handoff.status.value == 'escalated' %}bg-red-400
+                            {% else %}bg-yellow-400{% endif %}">
+                        </div>
+                        <span class="text-white font-semibold">
+                            {{ handoff.status.value.replace('_', ' ').title() }}
+                        </span>
+                    </div>
+                </div>
             </div>
-            {% else %}
-            <p class="text-gray-500">No comments yet.</p>
-            {% endfor %}
+
+            <!-- Critical Alerts -->
+            {% if handoff.is_overdue %}
+            <div class="mt-4 p-3 bg-red-900/50 backdrop-blur rounded-lg border border-red-400/50">
+                <div class="flex items-center text-white">
+                    <i class="fas fa-exclamation-triangle mr-2 animate-pulse"></i>
+                    <span class="font-semibold">OVERDUE</span>
+                    <span class="ml-2 opacity-90">
+                        Due {{ handoff.deadline.strftime('%B %d at %H:%M') }}
+                    </span>
+                </div>
+            </div>
+            {% elif handoff.sla_status == 'at_risk' %}
+            <div class="mt-4 p-3 bg-yellow-900/50 backdrop-blur rounded-lg border border-yellow-400/50">
+                <div class="flex items-center text-white">
+                    <i class="fas fa-clock mr-2"></i>
+                    <span class="font-semibold">AT RISK</span>
+                    <span class="ml-2 opacity-90">Less than 4 hours until deadline</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Quick Actions Bar -->
+        {% if current_user.team_id == handoff.to_team_id and handoff.status.value not in ['completed', 'cancelled'] %}
+        <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-t">
+            <div class="flex flex-wrap gap-2">
+                {% if handoff.status.value == 'pending' %}
+                <button @click="selectedStatus='acknowledged'; showStatusModal=true" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-hand-paper mr-2"></i>Acknowledge
+                </button>
+                <button @click="selectedStatus='in_progress'; showStatusModal=true"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-play-circle mr-2"></i>Start Working
+                </button>
+                
+                {% elif handoff.status.value == 'acknowledged' %}
+                <button @click="selectedStatus='in_progress'; showStatusModal=true"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-play-circle mr-2"></i>Start Working
+                </button>
+                
+                {% elif handoff.status.value == 'in_progress' %}
+                <button @click="selectedStatus='waiting_info'; showStatusModal=true"
+                        class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-question-circle mr-2"></i>Need Info
+                </button>
+                <button @click="selectedStatus='review'; showStatusModal=true"
+                        class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-eye mr-2"></i>Ready for Review
+                </button>
+                <button @click="showCompleteModal=true"
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-check-circle mr-2"></i>Complete
+                </button>
+                
+                {% elif handoff.status.value == 'waiting_info' %}
+                <button @click="selectedStatus='in_progress'; showStatusModal=true"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-play-circle mr-2"></i>Resume Work
+                </button>
+                
+                {% elif handoff.status.value == 'review' %}
+                <button @click="showCompleteModal=true"
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-check-double mr-2"></i>Approve & Complete
+                </button>
+                <button @click="selectedStatus='in_progress'; showStatusModal=true"
+                        class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-undo mr-2"></i>Request Changes
+                </button>
+                {% endif %}
+                
+                <button @click="showEscalateModal=true"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 hover:shadow-lg transition-all">
+                    <i class="fas fa-level-up-alt mr-2"></i>Escalate
+                </button>
+                
+                <div class="ml-auto flex items-center space-x-2">
+                    <button class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-all">
+                        <i class="fas fa-user-plus mr-2"></i>Assign
+                    </button>
+                    <button class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-all">
+                        <i class="fas fa-clock mr-2"></i>Extend Deadline
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Content Tabs -->
+    <div class="bg-white rounded-2xl shadow-lg border">
+        <!-- Tab Navigation -->
+        <div class="border-b">
+            <nav class="flex space-x-8 px-6" aria-label="Tabs">
+                <button @click="activeTab = 'overview'"
+                        :class="activeTab === 'overview' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-info-circle mr-2"></i>Overview
+                </button>
+                <button @click="activeTab = 'discussion'"
+                        :class="activeTab === 'discussion' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors relative">
+                    <i class="fas fa-comments mr-2"></i>Discussion
+                    {% if handoff.comment_count > 0 %}
+                    <span class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                        {{ handoff.comment_count }}
+                    </span>
+                    {% endif %}
+                </button>
+                <button @click="activeTab = 'timeline'"
+                        :class="activeTab === 'timeline' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-history mr-2"></i>Timeline
+                </button>
+                <button @click="activeTab = 'files'"
+                        :class="activeTab === 'files' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fas fa-paperclip mr-2"></i>Files
+                </button>
+            </nav>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="p-6">
+            <!-- Overview Tab -->
+            <div x-show="activeTab === 'overview'" x-cloak>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Main Content -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Description -->
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-3">Description</h3>
+                            <div class="prose max-w-none text-gray-700 bg-gray-50 rounded-lg p-6">
+                                {{ handoff.description | safe }}
+                            </div>
+                        </div>
+
+                        <!-- Tags -->
+                        {% if handoff.tags %}
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-3">Tags</h3>
+                            <div class="flex flex-wrap gap-2">
+                                {% for tag in handoff.tags.split(',') %}
+                                <span class="px-3 py-1 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-full text-sm border border-indigo-200">
+                                    <i class="fas fa-hashtag mr-1 text-xs"></i>{{ tag.strip() }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Sub-handoffs -->
+                        {% if sub_handoffs %}
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-3">Related Handoffs</h3>
+                            <div class="space-y-2">
+                                {% for sub in sub_handoffs %}
+                                <a href="{{ url_for('view_handoff', handoff_id=sub.id) }}" 
+                                   class="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <span class="font-medium text-indigo-600">{{ sub.reference_id }}</span>
+                                            <span class="ml-2 text-gray-700">{{ sub.title }}</span>
+                                        </div>
+                                        <span class="px-2 py-1 bg-{{ sub.get_status_color() }}-100 text-{{ sub.get_status_color() }}-700 text-xs rounded-full">
+                                            {{ sub.status.value.replace('_', ' ').title() }}
+                                        </span>
+                                    </div>
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Sidebar Info -->
+                    <div class="space-y-6">
+                        <!-- Key Details Card -->
+                        <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6">
+                            <h3 class="font-semibold text-gray-900 mb-4">Key Details</h3>
+                            <dl class="space-y-3">
+                                <div class="flex justify-between">
+                                    <dt class="text-sm text-gray-500">Priority</dt>
+                                    <dd>
+                                        <span class="px-3 py-1 bg-{{ handoff.get_priority_color() }}-100 text-{{ handoff.get_priority_color() }}-700 text-sm rounded-full font-medium">
+                                            {{ handoff.priority.value.upper() }}
+                                        </span>
+                                    </dd>
+                                </div>
+                                <div class="flex justify-between">
+                                    <dt class="text-sm text-gray-500">Type</dt>
+                                    <dd class="text-sm font-medium">{{ handoff.handoff_type.value.replace('_', ' ').title() }}</dd>
+                                </div>
+                                <div class="flex justify-between">
+                                    <dt class="text-sm text-gray-500">Created</dt>
+                                    <dd class="text-sm font-medium">{{ handoff.created_at.strftime('%b %d, %H:%M') }}</dd>
+                                </div>
+                                {% if handoff.deadline %}
+                                <div class="flex justify-between">
+                                    <dt class="text-sm text-gray-500">Deadline</dt>
+                                    <dd class="text-sm font-medium {{ 'text-red-600' if handoff.is_overdue else '' }}">
+                                        {{ handoff.deadline.strftime('%b %d, %H:%M') }}
+                                    </dd>
+                                </div>
+                                {% endif %}
+                                <div class="flex justify-between">
+                                    <dt class="text-sm text-gray-500">Time Elapsed</dt>
+                                    <dd class="text-sm font-medium">{{ "%.1f"|format(handoff.time_elapsed) }} hours</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <!-- People Card -->
+                        <div class="bg-white rounded-xl border p-6">
+                            <h3 class="font-semibold text-gray-900 mb-4">People</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                                         style="background-color: {{ handoff.creator.avatar_color }}">
+                                        {{ handoff.creator.get_initials() }}
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium">{{ handoff.creator.name }}</div>
+                                        <div class="text-xs text-gray-500">Created</div>
+                                    </div>
+                                </div>
+                                {% if handoff.assignee %}
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                                         style="background-color: {{ handoff.assignee.avatar_color }}">
+                                        {{ handoff.assignee.get_initials() }}
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium">{{ handoff.assignee.name }}</div>
+                                        <div class="text-xs text-gray-500">Assigned</div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Metrics Card -->
+                        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6">
+                            <h3 class="font-semibold text-gray-900 mb-4">Metrics</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Views</span>
+                                    <span class="font-semibold">{{ handoff.view_count }}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Comments</span>
+                                    <span class="font-semibold">{{ handoff.comment_count }}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">SLA Status</span>
+                                    <span class="px-2 py-1 text-xs rounded-full font-medium
+                                        {% if handoff.sla_status == 'breached' %}bg-red-100 text-red-700
+                                        {% elif handoff.sla_status == 'at_risk' %}bg-yellow-100 text-yellow-700
+                                        {% elif handoff.sla_status == 'on_track' %}bg-green-100 text-green-700
+                                        {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                        {{ handoff.sla_status.replace('_', ' ').title() }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Discussion Tab -->
+            <div x-show="activeTab === 'discussion'" x-cloak>
+                <!-- Comment Form -->
+                <div class="mb-6 bg-gray-50 rounded-xl p-6">
+                    <form method="POST" action="{{ url_for('add_comment', handoff_id=handoff.id) }}">
+                        {{ form.hidden_tag() }}
+                        <div class="flex items-start space-x-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
+                                 style="background-color: {{ current_user.avatar_color }}">
+                                {{ current_user.get_initials() }}
+                            </div>
+                            <div class="flex-1">
+                                {{ form.content(class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500",
+                                              rows=3,
+                                              placeholder="Add a comment...") }}
+                                <div class="mt-3 flex items-center justify-between">
+                                    <label class="flex items-center text-sm">
+                                        {{ form.is_internal(class="rounded text-indigo-600 mr-2") }}
+                                        <span class="text-gray-600">Internal note</span>
+                                    </label>
+                                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                                        <i class="fas fa-paper-plane mr-2"></i>Post
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Comments List -->
+                <div class="space-y-4">
+                    {% for comment in comments %}
+                    <div class="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-start space-x-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
+                                 style="background-color: {{ comment.user.avatar_color }}">
+                                {{ comment.user.get_initials() }}
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div>
+                                        <span class="font-medium">{{ comment.user.name }}</span>
+                                        <span class="text-sm text-gray-500 ml-2">{{ comment.user.team.name }}</span>
+                                        {% if comment.is_internal %}
+                                        <span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">Internal</span>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-xs text-gray-500">{{ comment.created_at.strftime('%b %d at %H:%M') }}</span>
+                                </div>
+                                <div class="text-gray-700 whitespace-pre-wrap">{{ comment.content }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-comments text-4xl mb-3"></i>
+                        <p>No comments yet. Start the discussion!</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Timeline Tab -->
+            <div x-show="activeTab === 'timeline'" x-cloak>
+                <div class="relative">
+                    <div class="absolute left-8 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                    <div class="space-y-6">
+                        {% for event in timeline %}
+                        <div class="relative flex items-start">
+                            <div class="absolute left-8 w-0.5 bg-gray-200"></div>
+                            <div class="relative z-10 w-16 h-16 rounded-full flex items-center justify-center
+                                {% if event.action == 'created' %}bg-blue-100 text-blue-600
+                                {% elif event.action == 'completed' %}bg-green-100 text-green-600
+                                {% elif event.action == 'escalated' %}bg-red-100 text-red-600
+                                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                <i class="fas 
+                                    {% if event.action == 'created' %}fa-plus
+                                    {% elif event.action == 'completed' %}fa-check
+                                    {% elif event.action == 'escalated' %}fa-arrow-up
+                                    {% else %}fa-circle{% endif %}"></i>
+                            </div>
+                            <div class="ml-6 flex-1">
+                                <div class="bg-white rounded-lg border p-4">
+                                    <div class="font-medium text-gray-900">{{ event.details }}</div>
+                                    <div class="text-sm text-gray-500 mt-1">{{ event.date.strftime('%B %d at %H:%M') }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Files Tab -->
+            <div x-show="activeTab === 'files'" x-cloak>
+                <div class="text-center py-12 text-gray-500">
+                    <i class="fas fa-cloud-upload-alt text-5xl mb-4"></i>
+                    <p class="text-lg mb-2">File attachments coming soon!</p>
+                    <p class="text-sm">For now, please include links to files in the description or comments.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Update Modal -->
+    <div x-show="showStatusModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl max-w-md w-full mx-4 shadow-2xl" @click.away="showStatusModal = false">
+            <div class="p-6 border-b">
+                <h3 class="text-lg font-semibold text-gray-900">Update Status</h3>
+            </div>
+            <form method="POST" action="{{ url_for('update_handoff_status', handoff_id=handoff.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="status" :value="selectedStatus">
+                <div class="p-6">
+                    <p class="text-gray-600 mb-4">
+                        Change status to: <span class="font-semibold" x-text="selectedStatus.replace('_', ' ').toUpperCase()"></span>
+                    </p>
+                    <textarea name="notes" rows="3" class="w-full border-gray-300 rounded-lg"
+                              placeholder="Add notes (optional)..."></textarea>
+                </div>
+                <div class="p-6 border-t bg-gray-50 flex justify-end space-x-3">
+                    <button type="button" @click="showStatusModal = false" 
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                        Update Status
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Complete Modal -->
+    <div x-show="showCompleteModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl max-w-md w-full mx-4 shadow-2xl" @click.away="showCompleteModal = false">
+            <div class="p-6 border-b bg-green-50">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-check-circle text-green-600 mr-2"></i>Complete Handoff
+                </h3>
+            </div>
+            <form method="POST" action="{{ url_for('update_handoff_status', handoff_id=handoff.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="status" value="completed">
+                <div class="p-6">
+                    <p class="text-gray-600 mb-4">Great job! Add completion notes to help others understand what was done.</p>
+                    <textarea name="notes" rows="4" class="w-full border-gray-300 rounded-lg"
+                              placeholder="What was completed? Any follow-up needed?" required></textarea>
+                </div>
+                <div class="p-6 border-t bg-gray-50 flex justify-end space-x-3">
+                    <button type="button" @click="showCompleteModal = false" 
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        <i class="fas fa-check mr-2"></i>Mark Complete
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Escalate Modal -->
+    <div x-show="showEscalateModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl max-w-md w-full mx-4 shadow-2xl" @click.away="showEscalateModal = false">
+            <div class="p-6 border-b bg-red-50">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>Escalate Handoff
+                </h3>
+            </div>
+            <form method="POST" action="{{ url_for('update_handoff_status', handoff_id=handoff.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="status" value="escalated">
+                <div class="p-6">
+                    <p class="text-gray-600 mb-4">Escalating will notify management immediately. Please provide a reason.</p>
+                    <textarea name="notes" rows="4" class="w-full border-gray-300 rounded-lg"
+                              placeholder="Why does this need escalation?" required></textarea>
+                </div>
+                <div class="p-6 border-t bg-gray-50 flex justify-end space-x-3">
+                    <button type="button" @click="showEscalateModal = false" 
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        <i class="fas fa-level-up-alt mr-2"></i>Escalate
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
 {% endblock %}
