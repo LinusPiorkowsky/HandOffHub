@@ -343,6 +343,7 @@ class HandoffForm(FlaskForm):
     description = TextAreaField('Description', validators=[DataRequired()])
     handoff_type = SelectField('Type', choices=[(t.value, t.value.replace('_', ' ').title()) for t in HandoffType])
     to_team = SelectField('To Team', coerce=int, validators=[DataRequired()])
+    assigned_to = SelectField('Assign To (Optional)', coerce=int, validators=[Optional()])  # NEU
     priority = SelectField('Priority', choices=[(p.value, p.value.title()) for p in Priority])
     deadline = DateTimeField('Deadline (Optional)', format='%Y-%m-%d %H:%M', validators=[Optional()])
     estimated_hours = IntegerField('Estimated Hours', validators=[Optional()])
@@ -663,6 +664,13 @@ def create_handoff():
     
     form.to_team.choices = [(0, '-- Select Team --')] + [(t.id, t.name) for t in org_teams]
     
+    # NEU: Personen zur Direktzuweisung laden
+    form.assigned_to.choices = [(0, '-- Auto-assign --')]
+    if request.method == 'GET' or form.to_team.data:
+        if form.to_team.data and form.to_team.data != 0:
+            team_members = User.query.filter_by(team_id=form.to_team.data, is_active=True).all()
+            form.assigned_to.choices += [(u.id, u.name) for u in team_members]
+    
     # Get templates for current team
     templates = HandoffTemplate.query.filter_by(team_id=current_user.team_id, is_active=True).all()
     form.template_id.choices = [(0, '-- No Template --')] + [(t.id, t.name) for t in templates]
@@ -679,6 +687,7 @@ def create_handoff():
             from_team_id=current_user.team_id,
             to_team_id=form.to_team.data,
             created_by_id=current_user.id,
+            assigned_to_id=form.assigned_to.data if form.assigned_to.data != 0 else None,  # NEU
             priority=Priority(form.priority.data),
             deadline=form.deadline.data,
             estimated_hours=form.estimated_hours.data,
@@ -700,19 +709,37 @@ def create_handoff():
         receiving_team = Team.query.get(form.to_team.data)
         receiving_team.total_handoffs_received += 1
         
-        # Create notifications for receiving team members
-        receiving_team_members = User.query.filter_by(team_id=form.to_team.data, is_active=True).all()
-        for member in receiving_team_members:
+        # NEU: Wenn direkt zugewiesen, Status auf ACKNOWLEDGED setzen
+        if handoff.assigned_to_id:
+            handoff.status = HandoffStatus.ACKNOWLEDGED
+            handoff.acknowledged_at = datetime.utcnow()
+            
+            # Benachrichtigung nur an zugewiesene Person
             create_notification(
-                member.id,
+                handoff.assigned_to_id,
                 handoff.id,
-                'new_handoff',
-                f'New {handoff.handoff_type.value} from {current_user.team.name}',
-                handoff.title
+                'assigned',
+                f'New {handoff.handoff_type.value} assigned to you',
+                f'{handoff.title} from {current_user.team.name}'
             )
             
-            if member.notification_preference in [NotificationType.EMAIL, NotificationType.BOTH]:
-                send_notification_email(handoff, member.email, 'New Handoff Received')
+            assignee = User.query.get(handoff.assigned_to_id)
+            if assignee.notification_preference in [NotificationType.EMAIL, NotificationType.BOTH]:
+                send_notification_email(handoff, assignee.email, 'Handoff Assigned to You')
+        else:
+            # Benachrichtigung an alle Team-Mitglieder
+            receiving_team_members = User.query.filter_by(team_id=form.to_team.data, is_active=True).all()
+            for member in receiving_team_members:
+                create_notification(
+                    member.id,
+                    handoff.id,
+                    'new_handoff',
+                    f'New {handoff.handoff_type.value} from {current_user.team.name}',
+                    handoff.title
+                )
+                
+                if member.notification_preference in [NotificationType.EMAIL, NotificationType.BOTH]:
+                    send_notification_email(handoff, member.email, 'New Handoff Received')
         
         db.session.commit()
         
@@ -796,9 +823,12 @@ def view_handoff(handoff_id):
                          sub_handoffs=sub_handoffs,
                          timeline=timeline)
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+@app.route('/')
+def index():
+    """Landing page with login/register options"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return render_template('index.html')
 
 
 @app.route('/handoff/<int:handoff_id>/update_status', methods=['POST'])
