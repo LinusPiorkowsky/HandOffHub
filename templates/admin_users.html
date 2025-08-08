@@ -1,0 +1,282 @@
+<!-- templates/admin_users.html -->
+{% extends "base.html" %}
+{% block title %}User Management - Admin Panel{% endblock %}
+{% block content %}
+
+<!-- Admin Check -->
+{% if current_user.role != 'admin' %}
+<div class="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
+    <i class="fas fa-lock text-4xl text-red-500 mb-4"></i>
+    <h2 class="text-2xl font-bold text-red-900 mb-2">Access Denied</h2>
+    <p class="text-red-700">Admin privileges required to access this page.</p>
+    <a href="{{ url_for('dashboard') }}" class="mt-4 inline-block text-indigo-600 hover:text-indigo-800">
+        Return to Dashboard
+    </a>
+</div>
+{% else %}
+
+<div class="space-y-6" x-data="{ 
+    showCreateUser: false, 
+    selectedUser: null,
+    searchTerm: '',
+    filterRole: 'all',
+    filterStatus: 'all'
+}">
+    
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">User Management</h1>
+                <p class="text-gray-600 mt-1">Manage all users across your organization</p>
+            </div>
+            <button @click="showCreateUser = true" class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition">
+                <i class="fas fa-user-plus mr-2"></i>Invite User
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="bg-white rounded-lg shadow-sm border p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Total Users</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ users|length }}</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-users text-blue-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm border p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Active</p>
+                    <p class="text-2xl font-bold text-green-600">{{ users|selectattr('is_active')|list|length }}</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-check-circle text-green-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm border p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Admins</p>
+                    <p class="text-2xl font-bold text-purple-600">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-crown text-purple-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm border p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Teams</p>
+                    <p class="text-2xl font-bold text-indigo-600">{{ teams_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-building text-indigo-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm border p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Orgs</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ orgs_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-sitemap text-gray-600"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="bg-white rounded-xl shadow-sm border p-4">
+        <div class="flex flex-col md:flex-row gap-4">
+            <!-- Search -->
+            <div class="flex-1">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    <input type="text" 
+                           x-model="searchTerm"
+                           placeholder="Search users by name or email..." 
+                           class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            
+            <!-- Role Filter -->
+            <select x-model="filterRole" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <option value="all">All Roles</option>
+                <option value="admin">Admins</option>
+                <option value="team_lead">Team Leads</option>
+                <option value="member">Members</option>
+            </select>
+            
+            <!-- Status Filter -->
+            <select x-model="filterStatus" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+            
+            <!-- Export Button -->
+            <button class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                <i class="fas fa-download mr-2"></i>Export CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Handoffs</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Active</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {% for user in users %}
+                    <tr class="hover:bg-gray-50 transition"
+                        x-show="
+                            (searchTerm === '' || 
+                             '{{ user.name }}'.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             '{{ user.email }}'.toLowerCase().includes(searchTerm.toLowerCase())) &&
+                            (filterRole === 'all' || filterRole === '{{ user.role or 'member' }}') &&
+                            (filterStatus === 'all' || 
+                             (filterStatus === 'active' && {{ user.is_active|lower }}) ||
+                             (filterStatus === 'inactive' && !{{ user.is_active|lower }}))
+                        ">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                                     style="background-color: {{ user.avatar_color }}">
+                                    {{ user.get_initials() }}
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
+                                    <div class="text-sm text-gray-500">{{ user.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ user.team.name if user.team else 'No Team' }}</div>
+                            <div class="text-sm text-gray-500">{{ user.team.organization.name if user.team else '' }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if user.role == 'admin' %}bg-purple-100 text-purple-800
+                                {% elif user.role == 'team_lead' %}bg-blue-100 text-blue-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ (user.role or 'member')|replace('_', ' ')|title }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if user.is_active %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                <i class="fas fa-circle text-green-400 mr-1" style="font-size: 8px;"></i> Active
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                <i class="fas fa-circle text-red-400 mr-1" style="font-size: 8px;"></i> Inactive
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ user.handoffs_completed or 0 }} completed</div>
+                            <div class="text-sm text-gray-500">{{ user.created_handoffs.count() }} created</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if user.last_seen %}
+                                {{ user.last_seen.strftime('%b %d, %H:%M') }}
+                            {% else %}
+                                Never
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex justify-end space-x-2">
+                                <button @click="selectedUser = {{ user.id }}" 
+                                        class="text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                {% if user.id != current_user.id %}
+                                <button class="text-red-600 hover:text-red-900">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create/Edit User Modal -->
+    <div x-show="showCreateUser" x-cloak 
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl max-w-md w-full mx-4 shadow-2xl" @click.away="showCreateUser = false">
+            <div class="p-6 border-b">
+                <h3 class="text-lg font-semibold text-gray-900">Invite New User</h3>
+            </div>
+            <form method="POST" action="/admin/users/create" class="p-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                        <input type="text" name="name" required 
+                               class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input type="email" name="email" required 
+                               class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Team</label>
+                        <select name="team_id" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            {% for team in all_teams %}
+                            <option value="{{ team.id }}">{{ team.name }} ({{ team.organization.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                        <select name="role" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="member">Member</option>
+                            <option value="team_lead">Team Lead</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" @click="showCreateUser = false" 
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                        Send Invitation
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
